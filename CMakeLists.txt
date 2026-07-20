@@ -1,0 +1,18 @@
+cmake_minimum_required(VERSION 3.0)
+PROJECT(MAIN)
+
+#编译配置
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+
+#可执行文件输出路径
+SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
+
+#头文件搜索路径
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/include)
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/include/server)
+
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/include/server/db)
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/include/server/model)
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/include/server/redis)
+#指定搜索子目录
+add_subdirectory(src)
