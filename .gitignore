@@ -39,7 +39,8 @@
 *.app
 
 # Build directories
-build/
+build/*
+!build/.gitkeep
 Build/
 build-*/
 
