@@ -17,6 +17,8 @@ ChatServer::ChatServer(EventLoop *loop, const InetAddress &listenAddr,
       std::bind(&ChatServer::onMessage, this, _1, _2, _3));
   // 设置合适的线程数量
   _server.setThreadNum(4);
+  // 设置心跳检测定时器
+  _loop->runEvery(10.0,std::bind(&ChatService::checkClientAlive, ChatService::instance()));
 }
 // 启动服务
 void ChatServer::start() {

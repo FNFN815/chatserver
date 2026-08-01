@@ -51,6 +51,10 @@ public:
 
   // redis
   void handlerRedisSubscribeMessage(int ,string);
+  //心跳检测与重连
+  void heartbeat(const TcpConnectionPtr &conn, json &js, Timestamp timestamp);
+  //检查客户端心跳超时
+  void checkClientAlive();
 private:
   // 存储消息id和其对应的处理方法
   unordered_map<int, MsgHandler> _msgHandlerMap;
@@ -62,6 +66,8 @@ private:
   GroupModel _groupModel;
   //redis操作类
   Redis _redis;
+  //心跳检测
+  unordered_map<int, Timestamp> _userHeartbeatMap;
 
 
   // 存储在线用户的通信连接

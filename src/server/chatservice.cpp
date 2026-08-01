@@ -37,6 +37,8 @@ ChatService::ChatService() {
     //设置上报消息的回调
     _redis.init_notify_handler(std::bind(&ChatService::handlerRedisSubscribeMessage,this,_1,_2));
   }
+  _msgHandlerMap.insert(
+      {HEARTBEAT_MSG, std::bind(&ChatService::heartbeat, this, _1, _2, _3)});
 }
 
 // 登录方法
@@ -152,14 +154,14 @@ void ChatService::reg(const TcpConnectionPtr &conn, json &js,
   if (state_REG) {
     // 注册成功
     json response;
-    response["msgid"] = REG_MSG;
+    response["msgid"] = REG_MSG_ACK;
     response["errno"] = 0;
     response["id"] = user.getId();
     conn->send(response.dump());
   } else {
     // 注册失败
     json response;
-    response["msgid"] = REG_MSG;
+    response["msgid"] = REG_MSG_ACK;
     response["errno"] = 1;
     conn->send(response.dump());
   }
@@ -313,4 +315,54 @@ void ChatService::createGroup(const TcpConnectionPtr &conn, json &js, Timestamp 
     // 存储离线消息
     _offlineMsgModel.insert(userid, msg);
 
+  }
+ //心跳检测与重连
+  void ChatService::heartbeat(const TcpConnectionPtr &conn, json &js, Timestamp timestamp)
+  {
+    int userid = js["id"].get<int>();
+    lock_guard<mutex> lock(_connMutex);
+    // 更新心跳时间戳
+    _userHeartbeatMap[userid]= timestamp;
+
+    json response;
+    response["msgid"]=HEARTBEAT_ACK_MSG;
+    response["errno"]=0;
+    conn->send(response.dump());
+  }
+  //检查客户端心跳超时
+  void ChatService::checkClientAlive()
+  {
+    Timestamp now=Timestamp::now();
+    vector<int> timeoutUsers;
+    {
+      lock_guard<mutex> lock(_connMutex);
+      for(auto&p:_userHeartbeatMap)
+      {
+        int userid = p.first;
+        Timestamp lastHeartbeat = p.second;
+        // 检查心跳超时（例如，超过30秒未收到心跳
+        if (now.microSecondsSinceEpoch() - lastHeartbeat.microSecondsSinceEpoch() > 30 * 1000000) {
+          timeoutUsers.push_back(userid);
+        }
+      }
+    }
+    for(int userid:timeoutUsers)
+    {
+      lock_guard<mutex> lock(_connMutex);
+      //处理超时用户的逻辑，例如关闭连接、更新状态等
+      auto it = _userConnMap.find(userid);
+      //找到用户的连接，关闭连接并从_map中移除
+      if(it!=_userConnMap.end())
+      {
+        it->second->shutdown();
+        _userConnMap.erase(it);
+      }
+      //从心跳检测map中移除超时用户
+      _userHeartbeatMap.erase(userid);
+      // 用户下线，在redis中注销订阅通道
+      _redis.unsubcribe(userid);
+      // 更新用户的状态信息
+      User user(userid,"","",offline);
+      _usermodel.updateState(user);
+    }
   }
